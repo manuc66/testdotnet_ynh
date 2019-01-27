@@ -23,15 +23,16 @@ ynh_abort_if_errors
 domain=$YNH_APP_ARG_DOMAIN
 path_url=$YNH_APP_ARG_PATH
 admin=$YNH_APP_ARG_ADMIN
-user_home=$YNH_APP_ARG_USER_HOME
+is_public=$YNH_APP_ARG_IS_PUBLIC
 
 app=$YNH_APP_INSTANCE_NAME
+CHECK_VAR "$app" "app name not set"
 
 #=================================================
 # CHECK IF THE APP CAN BE INSTALLED WITH THESE ARGS
 #=================================================
 
-final_path=/var/www/$app
+final_path=/opt/$app
 test ! -e "$final_path" || ynh_die "This path already contains a folder"
 
 # Normalize the url path syntax
@@ -49,34 +50,32 @@ ynh_webpath_register $app $domain $path_url
 ynh_app_setting_set $app domain $domain
 ynh_app_setting_set $app path $path_url
 ynh_app_setting_set $app admin $admin
-ynh_app_setting_set $app user_home $user_home
+ynh_app_setting_set $app is_public $is_public
 
 #=================================================
 # STANDARD MODIFICATIONS
 #=================================================
 # INSTALL DEPENDENCIES
 #=================================================
-
-ynh_install_app_dependencies $pkg_dependencies
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.asc.gpg
+sudo mv microsoft.asc.gpg /etc/apt/trusted.gpg.d/
+wget -q https://packages.microsoft.com/config/debian/9/prod.list
+sudo mv prod.list /etc/apt/sources.list.d/microsoft-prod.list
+sudo chown root:root /etc/apt/trusted.gpg.d/microsoft.asc.gpg
+sudo chown root:root /etc/apt/sources.list.d/microsoft-prod.list
+ynh_install_app_dependencies curl libunwind8 gettext apt-transport-https aspnetcore-runtime-2.2
 
 #=================================================
 # CREATE A MYSQL DATABASE
 #=================================================
 
-db_name=$(ynh_sanitize_dbid $app)
-ynh_app_setting_set $app db_name $db_name
-ynh_mysql_setup_db $db_name $db_name
+#db_name=$(ynh_sanitize_dbid $app)
+#ynh_app_setting_set $app db_name $db_name
+#ynh_mysql_setup_db $db_name $db_name
 
 #=================================================
 # DOWNLOAD, CHECK AND UNPACK SOURCE
 #=================================================
-
-# Load the last available version
-source upgrade.d/upgrade.last.sh
-# Create an app.src for the last version of nextcloud
-cp ../conf/app.src.default ../conf/app.src
-ynh_replace_string "__VERSION__" "$next_version" "../conf/app.src"
-ynh_replace_string "__SHA256_SUM__" "$nextcloud_source_sha256" "../conf/app.src"
 
 ynh_app_setting_set $app final_path $final_path
 # Download, check integrity, uncompress and patch the source from app.src
@@ -108,181 +107,23 @@ ynh_add_nginx_config
 ynh_system_user_create $app
 
 #=================================================
-# PHP-FPM CONFIGURATION
-#=================================================
-
-# Create a dedicated php-fpm config
-ynh_add_fpm_config
-
-#=================================================
-# SPECIFIC SETUP
-#=================================================
-# CREATE THE DATA DIRECTORY
-#=================================================
-
-# Define app's data directory
-datadir="/home/yunohost.app/${app}/data"
-# Create app folders
-mkdir -p "$datadir"
-
-#=================================================
-# INSTALL NEXTCLOUD
+# INSTALL 
 #=================================================
 
 # Set write access for the following commands
-chown -R $app: "$final_path" "$datadir"
+chown -R $app: "$final_path" 
 
-# Install Nextcloud using a temporary admin user
-exec_occ maintenance:install \
-    --database "mysql" --database-name "$db_name" \
-    --database-user "$db_name" --database-pass "$db_pwd" \
-    --admin-user "admin" --admin-pass "$(ynh_string_random 6)" \
-    --data-dir "$datadir" \
-  || ynh_die "Unable to install Nextcloud"
-
-#=================================================
-# CONFIGURE NEXTCLOUD
-#=================================================
-
-# Ensure that UpdateNotification app is disabled
-exec_occ app:disable updatenotification
-
-# Enable plugins
-exec_occ app:enable user_ldap
-exec_occ ldap:create-empty-config
-
-# Load the installation config file in nextcloud
-nc_conf="${final_path}/config_install.json"
-cp ../conf/config_install.json "$nc_conf"
-ynh_replace_string "#DOMAIN#" "$domain" "$nc_conf"
-ynh_replace_string "#DATADIR#" "$datadir" "$nc_conf"
-exec_occ config:import "$nc_conf"
-# Then remove it
-rm -f "$nc_conf"
-
-# Load the additional config file (used also for upgrade)
-nc_conf="${final_path}/config_install.json"
-cp ../conf/config.json "$nc_conf"
-exec_occ config:import "$nc_conf"
-# Then remove it
-rm -f "$nc_conf"
-
-#=================================================
-# CHECK THE LDAP CONFIG
-#=================================================
-
-# Check LDAP configuration to see if everything worked well
-exec_occ ldap:test-config \'\' \
-  || ynh_die "An error occured during LDAP configuration"
-
-#=================================================
-# MOUNT HOME FOLDERS AS EXTERNAL STORAGE
-#=================================================
-
-# Enable External Storage and create local mount to home folder
-if [ $user_home -eq 1 ]; then
-    exec_occ app:enable files_external
-    create_external_storage "/home/\$user" "Home"
-    # Iterate over users to extend their home folder permissions
-    for u in $(ynh_user_list); do
-        setfacl -m g:$app:rwx "/home/$u" || true
-    done
-fi
-
-#=================================================
-# ALLOW USERS TO DISCONNECT FROM NEXTCLOUD
-#=================================================
-
-# Add dynamic logout URL to the config
-exec_occ config:system:get logout_url >/dev/null 2>&1 \
-  || echo "
-//-YunoHost-
-// set logout_url according to main domain
-\$main_domain = exec('cat /etc/yunohost/current_host');
-\$CONFIG['logout_url'] = 'https://'.\$main_domain.'/yunohost/sso/?action=logout';
-//-YunoHost-
-" >> "${final_path}/config/config.php"
-
-#=================================================
-# REMOVE THE TEMPORARY ADMIN AND SET THE TRUE ONE
-#=================================================
-
-# Set the user as admin
-ynh_mysql_connect_as "$db_name" "$db_pwd" "$db_name" \
-    <<< "INSERT INTO oc_group_user VALUES ('admin','$admin');"
-# And delete admin user
-exec_occ user:delete admin
-
-#=================================================
-# STORE THE CHECKSUM OF THE CONFIG FILE
-#=================================================
-
-# Calculate and store the config file checksum into the app settings
-ynh_store_file_checksum "${final_path}/config/config.php"
-
-#=================================================
-# ADD A CRON JOB
-#=================================================
-
-cron_path="/etc/cron.d/$app"
-cp -a ../conf/nextcloud.cron "$cron_path"
-chown root: "$cron_path"
-chmod 644 "$cron_path"
-
-ynh_replace_string "#USER#" "$app" "$cron_path"
-ynh_replace_string "#DESTDIR#" "$final_path" "$cron_path"
-
-exec_occ background:cron
-
-#=================================================
-# CONFIGURE THE HOOK FILE FOR USER CREATE
-#=================================================
-
-# Set system group in hooks
-ynh_replace_string "#GROUP#" "$app" ../hooks/post_user_create
-
-#=================================================
-# YUNOHOST MULTIMEDIA INTEGRATION
-#=================================================
-
-# Build YunoHost multimedia directories
-ynh_multimedia_build_main_dir
-# Mount the user directory in Nextcloud
-exec_occ app:enable files_external
-create_external_storage "/home/yunohost.multimedia/\$user" "Multimedia"
-create_external_storage "/home/yunohost.multimedia/share" "Shared multimedia"
-# Allow nextcloud to write into these directories
-ynh_multimedia_addaccess $app
 
 #=================================================
 # GENERIC FINALIZATION
 #=================================================
-# SECURE FILES AND DIRECTORIES
-#=================================================
 
 # Fix app ownerships & permissions
-chown -R $app: "$final_path" "$datadir"
-find ${final_path}/ -type f -print0 | xargs -0 chmod 0644
-find ${final_path}/ -type d -print0 | xargs -0 chmod 0755
-find ${datadir}/ -type f -print0 | xargs -0 chmod 0640
-find ${datadir}/ -type d -print0 | xargs -0 chmod 0750
-chmod 640 "${final_path}/config/config.php"
-chmod 755 /home/yunohost.app
+chown -R $app: "$final_path" 
+ynh_app_setting_set $app final_path $final_path
 
-#=================================================
-# SETUP LOGROTATE
-#=================================================
-
-# Use logrotate to manage application logfile
-ynh_use_logrotate "${datadir}/nextcloud.log"
-
-#=================================================
-# SETUP SSOWAT
-#=================================================
-
-ynh_app_setting_set $app unprotected_uris "/"
-ynh_app_setting_set $app skipped_regex \
-    "$(sed 's/[\.\-]/\%&/g' <<< $domain)/%.well%-known/.*"
+# Modify Nginx configuration file and copy it to Nginx conf directory
+ynh_nginx_config
 
 #=================================================
 # RELOAD NGINX

@@ -1,14 +1,14 @@
 {
-    "id": "nextcloud",
-    "name": "Nextcloud",
+    "id": "testdotnet",
+    "name": "Test ASP.NET Core",
     "packaging_format": 1,
     "description": {
-        "en": "Access & share your files, calendars, contacts, mail & more from any device, on your terms",
-        "fr": "Consultez et partagez vos fichiers, agendas, carnets d'adresses, emails et bien plus depuis les appareils de votre choix, sous vos conditions"
+        "en": "Host an ASP.NET Core app",
+        "fr": "Heberge une application ASP.NET Core"
     },
-    "version": "13.0.6~ynh1",
-    "url": "https://nextcloud.com",
-    "license": "AGPL-3.0",
+    "version": "0.0.1",
+    "url": "https://github.com/manuc66/empty-aspnet-core",
+    "license": "MIT",
     "maintainer": {
         "name": "-",
         "email": "-"
@@ -18,9 +18,7 @@
     },
     "multi_instance": true,
     "services": [
-        "nginx",
-        "php5-fpm",
-        "mysql"
+        "nginx"
     ],
     "arguments": {
         "install" : [
@@ -28,8 +26,8 @@
                 "name": "domain",
                 "type": "domain",
                 "ask": {
-                    "en": "Choose a domain for Nextcloud",
-                    "fr": "Choisissez un domaine pour Nextcloud"
+                    "en": "Choose a domain",
+                    "fr": "Choisissez un domaine"
                 },
                 "example": "domain.org"
             },
@@ -37,29 +35,20 @@
                 "name": "path",
                 "type": "path",
                 "ask": {
-                    "en": "Choose a path for Nextcloud",
-                    "fr": "Choisissez un chemin pour Nextcloud"
+                    "en": "Choose a path",
+                    "fr": "Choisissez un chemin"
                 },
-                "example": "/nextcloud",
-                "default": "/nextcloud"
+                "example": "/testdotnet",
+                "default": "/testdotnet"
             },
             {
-                "name": "admin",
-                "type": "user",
-                "ask": {
-                    "en": "Choose the Nextcloud administrator (must be an existing YunoHost user)",
-                    "fr": "Choisissez l'administrateur de Nextcloud (doit être un utilisateur YunoHost existant)"
-                },
-                "example": "homer"
-            },
-            {
-                "name": "user_home",
+                "name": "is_public",
                 "type": "boolean",
                 "ask": {
-                    "en": "Access the users home folder from Nextcloud?",
-                    "fr": "Accéder au dossier personnel des utilisateurs depuis Nextcloud ?"
+                    "en": "Is it a public application?",
+                    "fr": "Est-ce une application publique ?"
                 },
-                "default": false
+                "default": true
             }
         ]
     }
