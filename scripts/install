@@ -26,7 +26,6 @@ admin=$YNH_APP_ARG_ADMIN
 is_public=$YNH_APP_ARG_IS_PUBLIC
 
 app=$YNH_APP_INSTANCE_NAME
-CHECK_VAR "$app" "app name not set"
 
 #=================================================
 # CHECK IF THE APP CAN BE INSTALLED WITH THESE ARGS
@@ -76,17 +75,6 @@ ynh_setup_source "$final_path"
 #=================================================
 # NGINX CONFIGURATION
 #=================================================
-
-# Do not serve .well-known if it's already served on the domain
-if is_url_handled "https://${domain}/.well-known/caldav" ; then
-    sed -ri '/^location = \/\.well\-known\/(caldav|carddav) \{/,/\}/d' \
-	"../conf/nginx.conf"
-fi
-
-# Handle root path, avoid double slash.
-# Temporary fix, in waiting for an upgrade of the helper. (#361)
-path_url_slash_less=${path_url%/}
-ynh_replace_string "__PATH__/" "$path_url_slash_less/" "../conf/nginx.conf"
 
 # Create a dedicated nginx config
 ynh_add_nginx_config
