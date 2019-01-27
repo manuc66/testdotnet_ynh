@@ -65,7 +65,7 @@ ynh_system_user_create $app
 #=================================================
 
 # Restore permissions on app files
-chown -R $app: $final_path
+chown -R root: $final_path
 
 #=================================================
 # SPECIFIC RESTORATION
@@ -88,6 +88,12 @@ systemctl enable $app.service
 #=================================================
 
 yunohost service add $app --log "/var/log/$app/APP.log"
+
+#=================================================
+# RESTORE THE LOGROTATE CONFIGURATION
+#=================================================
+
+ynh_restore_file "/etc/logrotate.d/$app"
 
 #=================================================
 # GENERIC FINALIZATION

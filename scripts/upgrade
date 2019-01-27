@@ -80,7 +80,7 @@ ynh_add_nginx_config
 # UPGRADE DEPENDENCIES
 #=================================================
 
-ynh_install_app_dependencies
+ynh_install_app_dependencies curl libunwind8 gettext apt-transport-https aspnetcore-runtime-2.2
 
 #=================================================
 # CREATE DEDICATED USER
@@ -92,6 +92,19 @@ ynh_system_user_create $app
 #=================================================
 # SPECIFIC UPGRADE
 #=================================================
+
+### Verify the checksum of a file, stored by `ynh_store_file_checksum` in the install script.
+### And create a backup of this file if the checksum is different. So the file will be backed up if the admin had modified it.
+#ynh_backup_if_checksum_is_different "$final_path/CONFIG_FILE"
+# Recalculate and store the checksum of the file for the next upgrade.
+#ynh_store_file_checksum "$final_path/CONFIG_FILE"
+
+#=================================================
+# SETUP LOGROTATE
+#=================================================
+
+# Use logrotate to manage app-specific logfile(s)
+ynh_use_logrotate --non-append
 
 #=================================================
 # SETUP SYSTEMD
@@ -107,18 +120,7 @@ ynh_add_systemd_config
 #=================================================
 
 # Set permissions on app files
-chown -R $app: $final_path
-
-#=================================================
-# SETUP SSOWAT
-#=================================================
-
-# Make app public if necessary
-if [ $is_public -eq 1 ]
-then
-	# unprotected_uris allows SSO credentials to be passed anyway
-	ynh_app_setting_set $app unprotected_uris "/"
-fi
+chown -R root: $final_path
 
 #=================================================
 # RELOAD NGINX
