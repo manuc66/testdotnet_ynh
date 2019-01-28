@@ -1,4 +1,4 @@
-Nextcloud for YunoHost
+Hosting AST.NET Core application for YunoHost
 ---------------------
 
 ## Links
