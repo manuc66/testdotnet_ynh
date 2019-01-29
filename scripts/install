@@ -54,6 +54,14 @@ ynh_app_setting_set $app is_public $is_public
 #=================================================
 # STANDARD MODIFICATIONS
 #=================================================
+# FIND AND OPEN A PORT
+#=================================================
+
+# Find a free port
+port=5000
+# Open this port
+ynh_app_setting_set $app port $port
+
 # INSTALL DEPENDENCIES
 #=================================================
 ynh_install_app_dependencies curl libunwind8 gettext apt-transport-https 
