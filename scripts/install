@@ -72,6 +72,7 @@ ynh_install_app_dependencies aspnetcore-runtime-2.2
 # DOWNLOAD, CHECK AND UNPACK SOURCE
 #=================================================
 
+
 ynh_app_setting_set $app final_path $final_path
 # Download, check integrity, uncompress and patch the source from app.src
 ynh_setup_source "$final_path"
@@ -91,16 +92,28 @@ ynh_add_nginx_config
 ynh_system_user_create $app
 
 #=================================================
-# INSTALL 
+# SPECIFIC SETUP
+#=================================================
+# ...
 #=================================================
 
-# Set write access for the following commands
-chown -R $app: "$final_path" 
+#=================================================
+# SETUP SYSTEMD
+#=================================================
 
-ynh_app_setting_set $app final_path $final_path
+### `ynh_systemd_config` is used to configure a systemd script for an app.
+### It can be used for apps that use sysvinit (with adaptation) or systemd.
+### Have a look at the app to be sure this app needs a systemd script.
+### `ynh_systemd_config` will use the file conf/systemd.service
+### If you're not using these lines:
+###		- You can remove those files in conf/.
+###		- Remove the section "BACKUP SYSTEMD" in the backup script
+###		- Remove also the section "STOP AND REMOVE SERVICE" in the remove script
+###		- As well as the section "RESTORE SYSTEMD" in the restore script
+###		- And the section "SETUP SYSTEMD" in the upgrade script
 
-# Download, check integrity, uncompress and patch the source from app.src
-ynh_setup_source "$final_path"
+# Create a dedicated systemd config
+ynh_add_systemd_config
 
 #=================================================
 # NGINX CONFIGURATION
@@ -152,9 +165,13 @@ ynh_use_logrotate
 ###		- Remove the section "REMOVE SERVICE FROM ADMIN PANEL" in the remove script
 ###		- As well as the section ADVERTISE SERVICE IN ADMIN PANEL" in the restore script
 
-yunohost service add $app --log "/var/log/$app/APP.log"
+# Start app service
+yunohost service add "$app" --log "/var/log/$app/$app.log"
+
+
 # if using yunohost version 3.2 or more in the 'manifest.json', a description can be added
 #yunohost service add $app --description "$app daemon for XXX" --log "/var/log/$app/APP.log"
+
 
 #=================================================
 # RELOAD NGINX

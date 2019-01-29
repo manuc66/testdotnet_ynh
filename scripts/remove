@@ -28,6 +28,7 @@ final_path=$(ynh_app_setting_get $app final_path)
 if yunohost service status | grep -q $app
 then
 	echo "Remove $app service"
+	yunohost service stop $app
 	yunohost service remove $app
 fi
 

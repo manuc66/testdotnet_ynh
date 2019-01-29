@@ -98,6 +98,8 @@ systemctl enable $app.service
 #=================================================
 
 yunohost service add $app --log "/var/log/$app/APP.log"
+yunohost service enable $app
+yunohost service start $app
 
 #=================================================
 # RESTORE THE LOGROTATE CONFIGURATION
