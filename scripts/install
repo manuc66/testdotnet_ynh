@@ -178,3 +178,6 @@ yunohost service add "$app" --log "/var/log/$app/$app.log"
 #=================================================
 
 systemctl reload nginx
+systemctl daemon-reload
+systemctl start $app
+systemctl enable $app
